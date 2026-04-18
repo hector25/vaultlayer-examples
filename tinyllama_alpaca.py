@@ -117,14 +117,21 @@ class _CheckpointToR2Callback(TrainerCallback):
             self._checkpoint = None
             print("[VL] vaultlayer_checkpoint NOT available — R2 upload skipped", flush=True)
 
-    def on_save(self, args, state, control, **kw):
-        if self._checkpoint is None:
+    def on_save(self, args, state, control, model=None, optimizer=None, **kw):
+        # HF TrainerCallback passes model + optimizer as kwargs since
+        # transformers 4.36. vaultlayer_checkpoint.checkpoint() requires
+        # both as positional args (it serializes both to the R2 tar).
+        # Previously this callback omitted them and silently failed every
+        # save with "missing 2 required positional arguments" — caught
+        # 2026-04-18 in stress run #6 (issue #73).
+        if self._checkpoint is None or model is None:
             return
         step = state.global_step
         try:
             self._checkpoint(
+                model=model,
+                optimizer=optimizer,
                 step=step,
-                checkpoint_dir=self.ckpt_dir,
                 extra_metadata={"model": MODEL_ID, "dataset": DATASET_ID},
             )
             print(f"[VL] checkpoint step={step} pushed to R2", flush=True)
