@@ -39,6 +39,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN python3 -m pip install --upgrade pip setuptools wheel
 
+# NumPy 1.x pin. Must install BEFORE torch so pyarrow/datasets' C-extensions
+# that bind against numpy's ABI pick up 1.x headers. With numpy 2.x in scope,
+# torch tensors -> pyarrow conversion fails at runtime with
+# "RuntimeError: Numpy is not available" (seen in the 2026-04-19 smoke run
+# job fb2ce2dc — TRL SFTTrainer's dataset packing called
+# tensor.detach().cpu().numpy() and crashed at the pyarrow bridge).
+# 1.26.4 is the last numpy 1.x release.
+RUN python3 -m pip install "numpy<2"
+
 # Torch 2.1.2 + CUDA 12.1 wheel from the PyTorch index.
 # Installed separately from HF stack so the pytorch index URL doesn't
 # contaminate the pypi resolve for the rest.
