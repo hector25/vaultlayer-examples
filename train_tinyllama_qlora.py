@@ -53,7 +53,7 @@ except ImportError as e:
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 if device == "cuda":
-    print(f"GPU: {torch.cuda.get_device_name(0)} ({torch.cuda.get_device_properties(0).total_mem / 1e9:.0f} GB)")
+    print(f"GPU: {torch.cuda.get_device_name(0)} ({torch.cuda.get_device_properties(0).total_memory / 1e9:.0f} GB)")
 else:
     print("WARNING: No GPU detected. Training will be extremely slow on CPU.")
 print(f"PyTorch: {torch.__version__}")
