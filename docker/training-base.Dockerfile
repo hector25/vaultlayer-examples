@@ -81,4 +81,14 @@ f'trl={trl.__version__} peft={peft.__version__} accelerate={accelerate.__version
 f'triton={triton.__version__}')" \
     && python3 -c "import bitsandbytes; print(f'bitsandbytes={bitsandbytes.__version__}')" || true
 
+# RunPod compat shim — their dockerEntrypoint decodes the bootstrap to
+# /pre_start.sh and execs /start.sh (see build_runpod_entrypoint()). Stock
+# RunPod images ship /start.sh that runs nginx+SSH+Jupyter+/pre_start.sh
+# then sleeps. We don't need any of that — just run /pre_start.sh. Without
+# /start.sh present, RunPod's entrypoint dies with "No such file or
+# directory" and the container silently exits (no heartbeat, job wedges
+# until stuck-detector fires). Caught 2026-04-19 fan-out on RunPod
+# instance irj8xlap0dkaju.
+RUN printf '#!/bin/bash\nexec /pre_start.sh\n' > /start.sh && chmod +x /start.sh
+
 WORKDIR /workspace
