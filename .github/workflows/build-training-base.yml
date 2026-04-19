@@ -1,0 +1,71 @@
+name: Build training-base image (public)
+
+# Publishes to ghcr.io/hector25/vl-training-base. Because this workflow
+# runs in the PUBLIC vaultlayer-examples repo, the resulting container
+# package inherits public visibility on first push — the user-owned
+# container package that the vaultlayer private repo publishes cannot
+# be flipped public via REST API.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docker/training-base.Dockerfile"
+      - ".github/workflows/build-training-base.yml"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to push (also pushed as :latest)"
+        required: true
+        default: "1.0"
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          swap-storage: false
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=1.0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/training-base.Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/hector25/vl-training-base:${{ steps.tag.outputs.value }}
+            ghcr.io/hector25/vl-training-base:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
