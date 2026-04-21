@@ -16,6 +16,7 @@ Usage:
 
 Environment variables (optional):
     MAX_STEPS=500         Override training steps (default: 1000)
+    MODEL_ID=mistralai/Mistral-7B-v0.1   Override model (default: TinyLlama-1.1B-Chat-v1.0)
     CKPT_EVERY=200        Checkpoint frequency (default: 200)
     MAX_SEQ_LEN=512       Max sequence length (default: 512)
 """
@@ -28,7 +29,7 @@ print("VaultLayer Stress Test: TinyLlama-1.1B QLoRA")
 print("=" * 60)
 
 # ── Config ───────────────────────────────────────────────────
-MODEL_ID = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+MODEL_ID = os.environ.get("MODEL_ID", "TinyLlama/TinyLlama-1.1B-Chat-v1.0")
 DATASET_ID = "tatsu-lab/alpaca"
 MAX_STEPS = int(os.environ.get("MAX_STEPS", "1000"))
 CKPT_EVERY = int(os.environ.get("CKPT_EVERY", "200"))
