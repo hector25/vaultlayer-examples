@@ -55,14 +55,29 @@ RUN python3 -m pip install \
         torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 \
         --index-url https://download.pytorch.org/whl/cu121
 
-# HuggingFace stack — versions from the 2026-04-19 stub reference set.
-# Keep these in sync with any prod stub updates.
+# HuggingFace stack — versions bumped 2026-04-20 to support modern 7B+ models.
+#
+# Why 4.36.2 was bumped to 4.41.x:
+#   * Mistral-7B-v0.1's tokenizer.json on HF Hub now uses a PreTokenizer
+#     schema (PyPreTokenizerTypeWrapper) that tokenizers~=0.15.x can't
+#     parse → LlamaTokenizerFast.from_file() crashes (job 5e539963 on
+#     Vast.ai 2026-04-20).
+#   * Qwen2.5-7B requires model_type='qwen2' in CONFIG_MAPPING, which
+#     was added in transformers 4.37 (job 980269cb on RunPod 2026-04-20).
+#
+# 4.41.2 picks up tokenizers >= 0.19 (handles new schema) and supports
+# Qwen2/Llama-3/Phi-3/etc model types. Compatible with our pinned
+# torch 2.1.2 + triton 2.1.0 (transformers 4.41 still supports torch
+# 2.0+, no upgrade required).
+#
+# accelerate / peft / trl bumped to versions tested against transformers
+# 4.41 — old pins (0.27.2 / 0.8.2 / 0.7.11) bracketed transformers 4.36.
 RUN python3 -m pip install \
         "triton==2.1.0" \
-        "transformers==4.36.2" \
-        "accelerate==0.27.2" \
-        "peft==0.8.2" \
-        "trl==0.7.11" \
+        "transformers==4.41.2" \
+        "accelerate==0.30.1" \
+        "peft==0.11.1" \
+        "trl==0.8.6" \
         "datasets==2.18.0" \
         "bitsandbytes==0.43.1" \
         "sentencepiece" \
