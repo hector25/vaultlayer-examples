@@ -105,12 +105,25 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_use_double_quant=True,
 )
 
+# Large-model loading hints. Required for 70B+ on single 80 GB GPU (H100 /
+# A100-80). Without these, `device_map="auto"` over-provisions GPU memory
+# for activation buffers during fp16→4-bit quantization and crashes with
+# "Current model requires N bytes of buffer for offloaded layers, which
+# seems does not fit any GPU's remaining". For smaller models these
+# hints are harmless (accelerate picks the GPU first, falls back to CPU
+# only if exceeded).
+os.makedirs("/tmp/offload", exist_ok=True)
+_max_memory = {0: "70GiB", "cpu": "200GiB"}  # leave ~10 GB H100 headroom
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_ID,
     quantization_config=bnb_config,
     device_map="auto",
+    max_memory=_max_memory,
+    offload_folder="/tmp/offload",
+    offload_state_dict=True,
     trust_remote_code=True,
     token=os.environ.get("HF_TOKEN"),
+    low_cpu_mem_usage=True,
 )
 tokenizer = AutoTokenizer.from_pretrained(
     MODEL_ID,
