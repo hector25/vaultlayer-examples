@@ -103,19 +103,35 @@ def main() -> int:
         if status == "running" and prov and inst:
             first_provider = first_provider or prov
             first_instance = first_instance or inst
-        # Heuristic: logs > 200 means training is well past step 50 for TinyLlama
-        # (bootstrap + model load eats ~150 lines).
-        if logs > 200 and first_instance:
-            log(f"Training underway on {first_provider} (inst {first_instance}), logs={logs} — killing now")
-            break
+        # Kill only once we've confirmed checkpoint-<CKPT_EVERY> has been
+        # written to disk. HuggingFace Trainer logs
+        #   "Saving model checkpoint to /workspace/checkpoints/<job>/checkpoint-<step>"
+        # on every save_steps. We grep the job's log tail for that exact
+        # string — works regardless of GPU speed, model size, or bootstrap
+        # verbosity. Replaces the fragile "logs > N" heuristic that
+        # mis-fired on slower GPUs (A10G, RTX4090) where bootstrap wrote
+        # 200+ lines before step 50.
+        if first_instance and logs > 50:
+            tail = call("GET", f"/jobs/{job_id}/logs?limit=200") or {}
+            lines = tail.get("lines", []) if isinstance(tail, dict) else []
+            marker = f"checkpoint-{CKPT_EVERY}"
+            saw_ckpt = any(
+                (marker in (l.get("line","") if isinstance(l, dict) else str(l)))
+                and "Saving model checkpoint" in (l.get("line","") if isinstance(l, dict) else str(l))
+                for l in lines
+            )
+            if saw_ckpt:
+                log(f"Confirmed {marker} written on {first_provider} inst {first_instance}. Waiting 30s for R2 sync then killing.")
+                break
 
     if not first_instance:
         log("Never saw a running instance within 20 min"); return 5
 
-    # Wait an additional 75s so the 60s sync loop definitely copied
-    # checkpoint-CKPT_EVERY into R2.
-    log("Waiting 75s for R2 sync to catch up...")
-    time.sleep(75)
+    # Wait 30s (was 75s) for R2 sync loop to push checkpoint-CKPT_EVERY
+    # — we already confirmed the checkpoint was written to local disk via
+    # log grep, so this is just the R2 upload settle time.
+    log("Waiting 30s for R2 sync to catch up...")
+    time.sleep(30)
 
     # Fire the kill.
     log("POST /simulate-instance-death")
